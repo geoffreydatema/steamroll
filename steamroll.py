@@ -18,15 +18,6 @@ def base90(decimal):
         print("cannot convert negative decimal to base92")
         return None
 
-def fromBase92(base92):
-    base92Decimals = {'~': 0, 'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5, 'F': 6, 'G': 7, 'H': 8, 'I': 9, 'J': 10, 'K': 11, 'L': 12, 'M': 13, 'N': 14, 'O': 15, 'P': 16, 'Q': 17, 'R': 18, 'S': 19, 'T': 20, 'U': 21, 'V': 22, 'W': 23, 'X': 24, 'Y': 25, 'Z': 26, 'a': 27, 'b': 28, 'c': 29, 'd': 30, 'e': 31, 'f': 32, 'g': 33, 'h': 34, 'i': 35, 'j': 36, 'k': 37, 'l': 38, 'm': 39, 'n': 40, 'o': 41, 'p': 42, 'q': 43, 'r': 44, 's': 45, 't': 46, 'u': 47, 'v': 48, 'w': 49, 'x': 50, 'y': 51, 'z': 52, '0': 53, '1': 54, '2': 55, '3': 56, '4': 57, '5': 58, '6': 59, '7': 60, '8': 61, '9': 62, '!': 63, '#': 64, '$': 65, '%': 66, '&': 67, "'": 68, '(': 69, ')': 70, '*': 71, '+': 72, ',': 73, '-': 74, '.': 75, '/': 76, ':': 77, ';': 78, '<': 79, '=': 80, '>': 81, '?': 82, '@': 83, '[': 84, ']': 85, '^': 86, '_': 87, '`': 88, '{': 89, '|': 90, '}': 91}
-    decimal = 0
-    power = 0
-    for char in reversed(base92):
-        decimal += base92Decimals[char] * (92 ** power)
-        power += 1
-    return decimal
-
 def fread(path):
     data = None
     with open(path, "rb") as file:
@@ -50,7 +41,6 @@ def steamroll(steamrolldata, steamrolltokencounts, chars):
                 steamrolldata[base92Index] = token
                 steamrolltokencounts[base92Index] = 1
                 index += 1
-            # elif token in steamrolldata.values(): #this can probably just be else for efficiency
             else:
                 for key in steamrolldata.keys():
                     if steamrolldata[key] == token:
@@ -61,10 +51,24 @@ def steamroll(steamrolldata, steamrolltokencounts, chars):
     for key in steamrolldata.keys():
         if steamrolltokencounts[key] <= 1:
             tokensToRemove.append(key)
+        # else:
+        #     print(f"{steamrolldata[key]} : {steamrolltokencounts[key]}")
 
     for key in tokensToRemove:
         del steamrolldata[key]
         del steamrolltokencounts[key]
+
+    renumberedSteamrollData = {}
+    renumberedSteamrollTokenCounts = {}
+    
+    index = 0
+    for key in steamrolldata:
+        renumberedSteamrollData[base90(index)] = steamrolldata[key]
+        renumberedSteamrollTokenCounts[base90(index)] = steamrolltokencounts[key]
+        index += 1
+
+    steamrolldata = renumberedSteamrollData
+    steamrolltokencounts = renumberedSteamrollTokenCounts
 
     tokenQueue = [""]
     for key in steamrolldata.keys():
@@ -137,3 +141,7 @@ if __name__ == "__main__":
     parser.add_argument("-cl", "--clean", action="store_true", help="Clean the file of non-ascii characters.")
     args = parser.parse_args()
     main(args.source, args.compress, args.uncompress, args.clean)
+
+# !* renumber tokens to optimize how many characters can be represented by the smallest base90 digit
+# !* only keep a token map if it results in compression
+# !* pull words out of punctuation to compress them
