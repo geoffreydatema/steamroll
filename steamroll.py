@@ -18,6 +18,15 @@ def base90(decimal):
         print("cannot convert negative decimal to base92")
         return None
 
+# def fromBase90(base90):
+#     base90Decimals = {'~': 0, 'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5, 'F': 6, 'G': 7, 'H': 8, 'I': 9, 'J': 10, 'K': 11, 'L': 12, 'M': 13, 'N': 14, 'O': 15, 'P': 16, 'Q': 17, 'R': 18, 'S': 19, 'T': 20, 'U': 21, 'V': 22, 'W': 23, 'X': 24, 'Y': 25, 'Z': 26, 'a': 27, 'b': 28, 'c': 29, 'd': 30, 'e': 31, 'f': 32, 'g': 33, 'h': 34, 'i': 35, 'j': 36, 'k': 37, 'l': 38, 'm': 39, 'n': 40, 'o': 41, 'p': 42, 'q': 43, 'r': 44, 's': 45, 't': 46, 'u': 47, 'v': 48, 'w': 49, 'x': 50, 'y': 51, 'z': 52, '0': 53, '1': 54, '2': 55, '3': 56, '4': 57, '5': 58, '6': 59, '7': 60, '8': 61, '9': 62, '!': 63, '#': 64, '$': 65, '%': 66, '&': 67, "'": 68, '(': 69, ')': 70, '*': 71, '+': 72, ',': 73, '-': 74, '.': 75, '/': 76, ':': 77, '<': 78, '=': 79, '>': 80, '?': 81, '@': 82, '[': 83, ']': 84, '_': 85, '': 86, '{': 87, '|': 88, '}': 89}
+#     decimal = 0
+#     power = 0
+#     for char in reversed(base90):
+#         decimal += base90Decimals[char] * (90 ** power)
+#         power += 1
+#     return decimal
+
 def fread(path):
     data = None
     with open(path, "rb") as file:
@@ -34,6 +43,7 @@ def steamroll(steamrolldata, steamrolltokencounts, chars):
     index = 0
     totalTokens = 0
 
+    # map all words to a base90 id
     for token in tokens:
         if len(token) > 3:
             if token not in steamrolldata.values():
@@ -47,17 +57,20 @@ def steamroll(steamrolldata, steamrolltokencounts, chars):
                         steamrolltokencounts[key] += 1
         totalTokens += 1
 
+    # flag all tokens that map to a word that isn't repeated, so that we can remove them
     tokensToRemove = []
     for key in steamrolldata.keys():
         if steamrolltokencounts[key] <= 1:
             tokensToRemove.append(key)
-        # else:
-        #     print(f"{steamrolldata[key]} : {steamrolltokencounts[key]}")
+        else:
+            print(f"{steamrolldata[key]} : {steamrolltokencounts[key]}")
 
+    # remove mapped tokens that won't result in net compression
     for key in tokensToRemove:
         del steamrolldata[key]
         del steamrolltokencounts[key]
 
+    # renumber all mapped tokens starting from 0 so that we use as few base90 digits to map to them
     renumberedSteamrollData = {}
     renumberedSteamrollTokenCounts = {}
     
@@ -70,28 +83,27 @@ def steamroll(steamrolldata, steamrolltokencounts, chars):
     steamrolldata = renumberedSteamrollData
     steamrolltokencounts = renumberedSteamrollTokenCounts
 
+    # write the token map to the start of the file
     tokenQueue = [""]
     for key in steamrolldata.keys():
         tokenQueue[0] += f"^{key}^{steamrolldata[key]}"
     tokenQueue[0] += ";"
+
+    # create a queue of tokens, subbing in the mapped id for compressed tokens
     for token in tokens:
         addedToken = False
         for key in steamrolldata.keys():
             if steamrolldata[key] == token:
-                tokenQueue.append(f"^{key}^ ")
+                tokenQueue.append(f"^{key} ")
                 addedToken = True
                 break
         if addedToken == False:
             tokenQueue.append(f"{token} ")
-    # print(steamrolldata)
-    # print(steamrolltokencounts)
-    # print(index)
-    # print(totalTokens)
-    # print(tokenQueue)
     tokenQueue[-1] = tokenQueue[-1][:-1]
+
     return "".join(tokenQueue)
 
-def unsteamroll(steamrolldata, steamrolltokencounts, chars):
+def unsteamroll(steamrolldata, chars):
     headerSplit = chars.split(";")
     header = headerSplit[0].split("^")[1:]
     data = headerSplit[1]
@@ -99,24 +111,18 @@ def unsteamroll(steamrolldata, steamrolltokencounts, chars):
         steamrolldata[header[0]] = header[1]
         header = header[2:]
 
+    data = data.split(" ")
+
     uncompressedDataQueue = []
     nextToken = ""
     startMappedToken = False
-    for char in data:
-        if char == "^":
-            if startMappedToken == False:
-                startMappedToken = True
-                uncompressedDataQueue.append(nextToken)
-                nextToken = ""
-            elif startMappedToken == True:
-                startMappedToken = False
-                uncompressedDataQueue.append(steamrolldata[nextToken[1:]])
-                nextToken = ""
-                continue
-        nextToken += char
-    if nextToken:
-        uncompressedDataQueue.append(nextToken)
 
+    for token in data:
+        if token[0] == "^":
+            uncompressedDataQueue.append(f"{steamrolldata[token[1:]]} ")
+        else:
+            uncompressedDataQueue.append(f"{token} ")
+    uncompressedDataQueue[-1] = uncompressedDataQueue[-1][:-1]
     return "".join(uncompressedDataQueue)
 
 def main(source, isCompress, isUncompress, isClean):
@@ -127,7 +133,7 @@ def main(source, isCompress, isUncompress, isClean):
         fwrite(compressedText, r"C:\\Working\\steamroll\\testCompressed.txt")
     
     if isUncompress:
-        uncompressedText = unsteamroll(steamrolldata, steamrolltokencounts, chars)
+        uncompressedText = unsteamroll(steamrolldata, chars)
         fwrite(uncompressedText, r"C:\\Working\\steamroll\\testUncompressed.txt")
 
     if isClean:
@@ -142,6 +148,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     main(args.source, args.compress, args.uncompress, args.clean)
 
-# !* renumber tokens to optimize how many characters can be represented by the smallest base90 digit
-# !* only keep a token map if it results in compression
+# !* sort tokenmap so the valuable single digit ids map to the smallest words for best compression
 # !* pull words out of punctuation to compress them
+# !* handle ; in mapped tokens
