@@ -5,6 +5,8 @@ steamrolltokencounts = {}
 
 BASE92 = "~ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&'()*+,-./:<=>?@[]_`{|}"
 
+POWERSOF90 = [90, 8100, 729000, 65610000, 5904900000]
+
 def base90(decimal):
     base90String = ""
     if decimal >= 0:
@@ -45,7 +47,7 @@ def steamroll(steamrolldata, steamrolltokencounts, chars):
 
     # map all words to a base90 id
     for token in tokens:
-        if len(token) > 3:
+        if len(token) > 4:
             if token not in steamrolldata.values():
                 base92Index = base90(index)
                 steamrolldata[base92Index] = token
@@ -86,7 +88,7 @@ def steamroll(steamrolldata, steamrolltokencounts, chars):
     # write the token map to the start of the file
     tokenQueue = [""]
     for key in steamrolldata.keys():
-        tokenQueue[0] += f"^{key}^{steamrolldata[key]}"
+        tokenQueue[0] += f"^{key}{steamrolldata[key]}"
     tokenQueue[0] += ";"
 
     # create a queue of tokens, subbing in the mapped id for compressed tokens
@@ -104,18 +106,35 @@ def steamroll(steamrolldata, steamrolltokencounts, chars):
     return "".join(tokenQueue)
 
 def unsteamroll(steamrolldata, chars):
+    # split header from data
     headerSplit = chars.split(";")
+
+    # read in tokenmap
     header = headerSplit[0].split("^")[1:]
     data = headerSplit[1]
+    mappedTokenCounter = 0
     while len(header) > 0:
-        steamrolldata[header[0]] = header[1]
-        header = header[2:]
+        if mappedTokenCounter < POWERSOF90[0]:
+            digitCount = 1
+        elif mappedTokenCounter < POWERSOF90[1]:
+            digitCount = 2
+        elif mappedTokenCounter < POWERSOF90[2]:
+            digitCount = 3
+        elif mappedTokenCounter < POWERSOF90[3]:
+            digitCount = 4
+        elif mappedTokenCounter < POWERSOF90[4]:
+            digitCount = 5
+        else:
+            print("cannot handle over 5904900000 mapped tokens")
+        
+        base90Index = header[0][:digitCount]
+        steamrolldata[base90Index] = header[0][digitCount:]
+        header = header[1:]
+        mappedTokenCounter += 1
 
+    # read in mixed tokens, uncompressing mapped tokens using the tokenmap
     data = data.split(" ")
-
     uncompressedDataQueue = []
-    nextToken = ""
-    startMappedToken = False
 
     for token in data:
         if token[0] == "^":
@@ -123,6 +142,7 @@ def unsteamroll(steamrolldata, chars):
         else:
             uncompressedDataQueue.append(f"{token} ")
     uncompressedDataQueue[-1] = uncompressedDataQueue[-1][:-1]
+
     return "".join(uncompressedDataQueue)
 
 def main(source, isCompress, isUncompress, isClean):
@@ -148,6 +168,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     main(args.source, args.compress, args.uncompress, args.clean)
 
-# !* sort tokenmap so the valuable single digit ids map to the smallest words for best compression
-# !* pull words out of punctuation to compress them
+# !* only keep a mapped token if it results in net compression (by comparing length of word to number of instances)
+# !* pull words out of punctuation to compress them?
 # !* handle ; in mapped tokens
