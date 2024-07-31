@@ -62,10 +62,12 @@ def steamroll(steamrolldata, steamrolltokencounts, chars):
     # flag all tokens that map to a word that isn't repeated, so that we can remove them
     tokensToRemove = []
     for key in steamrolldata.keys():
-        if steamrolltokencounts[key] <= 1:
+        numberOfBytesOriginal = len(steamrolldata[key]) * steamrolltokencounts[key]
+        numberOfBytesCompressed = (len(steamrolldata[key]) + len(key) + 1) + ((len(key) + 1) * steamrolltokencounts[key])
+        ratio = numberOfBytesCompressed / numberOfBytesOriginal
+        
+        if ratio >= 1:
             tokensToRemove.append(key)
-        else:
-            print(f"{steamrolldata[key]} : {steamrolltokencounts[key]}")
 
     # remove mapped tokens that won't result in net compression
     for key in tokensToRemove:
@@ -168,6 +170,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
     main(args.source, args.compress, args.uncompress, args.clean)
 
-# !* only keep a mapped token if it results in net compression (by comparing length of word to number of instances)
 # !* pull words out of punctuation to compress them?
 # !* handle ; in mapped tokens
