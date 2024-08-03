@@ -4,6 +4,7 @@ steamrolldata = {}
 steamrolltokencounts = {}
 
 BASE92 = "~ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&'()*+,-./:<=>?@[]_`{|}"
+IDCHARS = ["~", "^", "`", "@", "{", "|", "}", "[", "]", "<", ">", "=", "*", "+", "-", "#", "%", "$", "&", "'", "(", ")", "_", "/", ":", ";", "!", "?", "," , ".", "~~", "~^", "~`", "~@", "~{", "~|", "~}", "~[", "~]", "~<", "~>", "~=", "~*", "~+", "~-", "~#", "~%", "~$", "~&", "~'", "~(", "~)", "~_", "~/", "~:", "~;", "~!", "~?", "~,", "~."]
 
 POWERSOF90 = [90, 8100, 729000, 65610000, 5904900000]
 
@@ -40,7 +41,7 @@ def fwrite(data, path):
     with open(path, "w") as file:
         file.write(data)
 
-def steamroll(steamrolldata, steamrolltokencounts, chars):
+def steamroll_OLD(steamrolldata, steamrolltokencounts, chars):
     tokens = chars.split(" ")
     index = 0
     totalTokens = 0
@@ -107,10 +108,52 @@ def steamroll(steamrolldata, steamrolltokencounts, chars):
 
     return "".join(tokenQueue)
 
+def getSafeChar(chars):
+    totalSearched = 0
+    keepSearching = False
+    searchDoubles = False
+
+    for idCharIndex in range(len(IDCHARS)):
+        print(f"current: {IDCHARS[idCharIndex]}")
+        keepSearching = False
+        for index in range(len(chars)):
+            if searchDoubles == False:
+                if chars[index] == IDCHARS[idCharIndex]:
+                    keepSearching = True
+                    break
+            else:
+                if index < len(chars) - 1:
+                    if f"{chars[index]}{chars[index + 1]}" == IDCHARS[idCharIndex]:
+                        keepSearching = True
+                        break
+            index += 1
+            totalSearched += 1
+
+        if idCharIndex >= 29:
+            searchDoubles = True
+
+        if keepSearching == False:
+            print(totalSearched)
+            return IDCHARS[idCharIndex]
+    print("Could not find a safe character for mapping tokens. Unfortunatly this file cannot be compressed.")
+    return None
+
+def compressByArbitraryTokenLength(chars, tokenLength):
+    pass
+
+def steamroll(steamrolldata, steamrolltokencounts, chars):
+    idChar = getSafeChar(chars)    
+
+    compressByArbitraryTokenLength(chars, 3)
+    # compress by threes, fours, fives etc, until the size of token gives zero net compression
+    # rank all the tokenmaps by most bytes compressed by the fewest id digits
+    # compress using the highest ranked tokenmap
+    # reevaluate the new ranking of best mappings and continue the process until no more compression is obtained
+
 def unsteamroll(steamrolldata, chars):
     # split header from data
     headerSplit = chars.split(";")
-
+    
     # read in tokenmap
     header = headerSplit[0].split("^")[1:]
     data = headerSplit[1]
@@ -152,11 +195,11 @@ def main(source, isCompress, isUncompress, isClean):
 
     if isCompress:
         compressedText = steamroll(steamrolldata, steamrolltokencounts, chars)
-        fwrite(compressedText, r"C:\\Working\\steamroll\\testCompressed.txt")
+        # fwrite(compressedText, r"C:\\Working\\steamroll\\testCompressed.txt")
     
     if isUncompress:
         uncompressedText = unsteamroll(steamrolldata, chars)
-        fwrite(uncompressedText, r"C:\\Working\\steamroll\\testUncompressed.txt")
+        # fwrite(uncompressedText, r"C:\\Working\\steamroll\\testUncompressed.txt")
 
     if isClean:
         fwrite(chars, r"C:\\Working\\steamroll\\testCleaned.txt")
@@ -170,5 +213,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     main(args.source, args.compress, args.uncompress, args.clean)
 
+# !* sort mapped tokens to optimize storing the most repetitions with the smallest ids
 # !* pull words out of punctuation to compress them?
 # !* handle ; in mapped tokens
