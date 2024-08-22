@@ -179,28 +179,15 @@ def compressByArbitraryTokenLength(chars, tokenLength, idCharacterLength):
 
 def rankAllTokenmaps(allTokenmaps):
 
-    # !* multi dict ranking is almost complete, just need to capture all values instead of just the new lowest ratios
-
     rankedTokenmaps = []
-    
+
+    # flatten dictionaries to a single list
     for tokenmap in allTokenmaps:
         for key in tokenmap.keys():
-            if len(rankedTokenmaps) > 0:
-                index = 0
-                print(len(rankedTokenmaps))
-                for rankedToken in rankedTokenmaps:
-                    if index <= len(rankedTokenmaps):
-                        if tokenmap[key][1] < rankedToken[1]:
-                            rankedTokenmaps.insert(index, tokenmap[key])
-                            index += 1
-                            break
-                    else:
-                        rankedTokenmaps.append(rankedToken)
-            else:
-                rankedTokenmaps.append(tokenmap[key])
+            rankedTokenmaps.append(tokenmap[key])
 
-    for a in rankedTokenmaps:
-        print(a)
+    # sort tokenmaps by compression ratio
+    rankedTokenmaps.sort(key=lambda x: x[1])
 
 def steamroll(chars):
     idChar = getSafeChar(chars)
@@ -224,7 +211,7 @@ def steamroll(chars):
     #     print()
 
     # DONE find compression ratios for token size of three, four, fives etc, until the size of token gives zero net compression
-    # !* rank all the tokenmaps by most bytes compressed by the fewest id digits
+    # DONE rank all the tokenmaps by most bytes compressed by the fewest id digits
     # !* verify the next highest tokenmap is still valid (because a previous compression may have invalidated it)
     # !* compress using the next highest ranked tokenmap
     # !* reevaluate the new ranking of best mappings and continue the process until no more compression is obtained
