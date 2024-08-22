@@ -139,13 +139,17 @@ def sortByFrequency(dictionary):
 def getCompressionRatios(tokenmap, idCharacterLength):
     result = {}
     index = 0
-    for tokenID in tokenmap:
+    for tokenID in tokenmap.keys():
         if tokenmap[tokenID][1] > 1:
             base92ID = base92(index)
             token = tokenmap[tokenID]
-            compressed = len(base92ID) + idCharacterLength
+            # calculate the compressed token size using the best case scenario which would be
+            # using a single digit to represent the token (in reality, it may end up being larger)
+            # 1 tokenmap digit + 3 id characters + initial occurance of token + (ideal tokenmap * (number of occurances - 1))
+            compressed = 1 + (idCharacterLength * 3) + len(token[0]) + (3 * (token[1] - 1))
             uncompressed = len(token[0]) * token[1]
             result[base92ID] = [token[0], compressed / uncompressed]
+            print(f"{base92ID} {token} {compressed} {uncompressed} {result[base92ID]}")
             index += 1
 
     return result
@@ -174,9 +178,6 @@ def getTokenFrequency(chars, tokenLength, idCharacterLength):
     tokenmapRatios = getCompressionRatios(sortedTokenmap, idCharacterLength)
     return tokenmapRatios
 
-def compressByArbitraryTokenLength(chars, tokenLength, idCharacterLength):
-    return getTokenFrequency(chars, tokenLength, idCharacterLength)
-
 def rankAllTokenmaps(allTokenmaps):
 
     rankedTokenmaps = []
@@ -189,14 +190,17 @@ def rankAllTokenmaps(allTokenmaps):
     # sort tokenmaps by compression ratio
     rankedTokenmaps.sort(key=lambda x: x[1])
 
+    return rankedTokenmaps
+
 def steamroll(chars):
     idChar = getSafeChar(chars)
 
+    # examine all relevant token sizes to find compression ratios we can obtain from compressing each
     rankedTokenmaps = []
     searchLength = 3
     continueRanking = True
     while continueRanking == True:
-        nextRanking = compressByArbitraryTokenLength(chars, searchLength, len(idChar))
+        nextRanking = getTokenFrequency(chars, searchLength, len(idChar))
         if len(nextRanking) > 0:
             rankedTokenmaps.append(nextRanking)
         else:
@@ -206,15 +210,12 @@ def steamroll(chars):
     # compare compression ratio across all token sizes and return the order we will compress in
     rankedTokenmaps = rankAllTokenmaps(rankedTokenmaps)
     
-    # for l in rankedTokenmaps:
-    #     print(l)
-    #     print()
+    # print(rankedTokenmaps)
 
     # DONE find compression ratios for token size of three, four, fives etc, until the size of token gives zero net compression
     # DONE rank all the tokenmaps by most bytes compressed by the fewest id digits
-    # !* verify the next highest tokenmap is still valid (because a previous compression may have invalidated it)
-    # !* compress using the next highest ranked tokenmap
-    # !* reevaluate the new ranking of best mappings and continue the process until no more compression is obtained
+    # !* compress by each tokenmap in order, if it's still valid (because a previous compression may have invalidated it)
+    # !* maybe at the end reevaluate the new ranking of best mappings and continue the process until no more compression is obtained
 
 def unsteamrollold(steamrolldata, chars):
     # split header from data
