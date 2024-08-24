@@ -139,6 +139,7 @@ def sortByFrequency(dictionary):
 def getCompressionRatios(tokenmap, idCharacterLength):
     result = {}
     index = 0
+
     for tokenID in tokenmap.keys():
         if tokenmap[tokenID][1] > 1:
             base92ID = base92(index)
@@ -148,8 +149,9 @@ def getCompressionRatios(tokenmap, idCharacterLength):
             # 1 tokenmap digit + 3 id characters + initial occurance of token + (ideal tokenmap * (number of occurances - 1))
             compressed = 1 + (idCharacterLength * 3) + len(token[0]) + (3 * (token[1] - 1))
             uncompressed = len(token[0]) * token[1]
-            result[base92ID] = [token[0], compressed / uncompressed]
-            print(f"{base92ID} {token} {compressed} {uncompressed} {result[base92ID]}")
+            ratio = compressed / uncompressed
+            
+            result[base92ID] = [token[0], ratio]
             index += 1
 
     return result
@@ -190,14 +192,38 @@ def rankAllTokenmaps(allTokenmaps):
     # sort tokenmaps by compression ratio
     rankedTokenmaps.sort(key=lambda x: x[1])
 
-    return rankedTokenmaps
+    keyedRankedTokenmaps = {}
+    index = 0
+    # give proper base92 ids to each tokenmap
+    for tokenmap in rankedTokenmaps:
+        if tokenmap[1] < 1.0:
+            base92ID = base92(index)
+            keyedRankedTokenmaps[base92ID] = tokenmap
+            index += 1
+
+    return keyedRankedTokenmaps
+
+def compressToken(chars, tokenID, tokenmap, idChar):
+    if tokenmap[1] < 1.0:
+        print(f"compressing [{tokenmap[0]}]")
+        print(f"original file ---- {chars}")
+        
+        fullTokenmap = f"{idChar}{tokenID}{tokenmap[0]}{idChar}"
+        firstInstance = chars.replace(tokenmap[0], fullTokenmap, 1)
+        splitChars = firstInstance.split(fullTokenmap)  
+        compressedSplit = splitChars[1].replace(tokenmap[0], f"{idChar}{tokenID}{idChar}")
+
+        combinedCompressedChars = splitChars[0] + fullTokenmap + compressedSplit
+        print(f"compressed file --- {combinedCompressedChars}\n\n")
+        # !* single run token compression is working, next do iterative compression if the tokens are still valid
+
 
 def steamroll(chars):
     idChar = getSafeChar(chars)
 
     # examine all relevant token sizes to find compression ratios we can obtain from compressing each
     rankedTokenmaps = []
-    searchLength = 3
+    searchLength = 4
     continueRanking = True
     while continueRanking == True:
         nextRanking = getTokenFrequency(chars, searchLength, len(idChar))
@@ -209,8 +235,10 @@ def steamroll(chars):
 
     # compare compression ratio across all token sizes and return the order we will compress in
     rankedTokenmaps = rankAllTokenmaps(rankedTokenmaps)
-    
-    # print(rankedTokenmaps)
+   
+    for tokenID in rankedTokenmaps:
+        compressToken(chars, tokenID, rankedTokenmaps[tokenID], idChar)
+
 
     # DONE find compression ratios for token size of three, four, fives etc, until the size of token gives zero net compression
     # DONE rank all the tokenmaps by most bytes compressed by the fewest id digits
