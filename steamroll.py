@@ -146,7 +146,7 @@ def getCompressionRatios(tokenmap, idCharacterLength):
             token = tokenmap[tokenID]
             # calculate the compressed token size using the best case scenario which would be
             # using a single digit to represent the token (in reality, it may end up being larger)
-            # 1 tokenmap digit + 3 id characters + initial occurance of token + (ideal tokenmap * (number of occurances - 1))
+            # 1 tokenID digit + 3 id characters + initial occurance of token + (ideal tokenmap * (number of occurances - 1))
             compressed = 1 + (idCharacterLength * 3) + len(token[0]) + (3 * (token[1] - 1))
             uncompressed = len(token[0]) * token[1]
             ratio = compressed / uncompressed
@@ -204,19 +204,28 @@ def rankAllTokenmaps(allTokenmaps):
     return keyedRankedTokenmaps
 
 def compressToken(chars, tokenID, tokenmap, idChar):
+    # !* compression can be optimized by assigning the base92 ids here, at the time of compression
+    #       as opposed to before we know if the tokenmap is still valid for compression
+    #       we really should overhaul id assigning because the process is repeated likely unnecessarily
+    
     if tokenmap[1] < 1.0:
-        print(f"compressing [{tokenmap[0]}]")
-        print(f"original file ---- {chars}")
-        
-        fullTokenmap = f"{idChar}{tokenID}{tokenmap[0]}{idChar}"
-        firstInstance = chars.replace(tokenmap[0], fullTokenmap, 1)
-        splitChars = firstInstance.split(fullTokenmap)  
-        compressedSplit = splitChars[1].replace(tokenmap[0], f"{idChar}{tokenID}{idChar}")
 
-        combinedCompressedChars = splitChars[0] + fullTokenmap + compressedSplit
-        print(f"compressed file --- {combinedCompressedChars}\n\n")
-        # !* single run token compression is working, next do iterative compression if the tokens are still valid
+        occurances = chars.count(tokenmap[0])
+        if occurances > 1:
+            print(f"compressing [{tokenmap[0]}]")
+            print(f"original file ---- {chars}")
+            
+            fullTokenmap = f"{idChar}{tokenID}{idChar}{tokenmap[0]}{idChar}"
+            firstInstance = chars.replace(tokenmap[0], fullTokenmap, 1)
+            splitChars = firstInstance.split(fullTokenmap)  
+            compressedSplit = splitChars[1].replace(tokenmap[0], f"{idChar}{tokenID}{idChar}")
 
+            combinedCompressedChars = splitChars[0] + fullTokenmap + compressedSplit
+            print(f"compressed file --- {combinedCompressedChars}\n\n")
+
+            return combinedCompressedChars
+        else:
+            return chars
 
 def steamroll(chars):
     idChar = getSafeChar(chars)
@@ -235,9 +244,11 @@ def steamroll(chars):
 
     # compare compression ratio across all token sizes and return the order we will compress in
     rankedTokenmaps = rankAllTokenmaps(rankedTokenmaps)
-   
+    print(rankedTokenmaps)
+
+    compressedChars = chars
     for tokenID in rankedTokenmaps:
-        compressToken(chars, tokenID, rankedTokenmaps[tokenID], idChar)
+        compressedChars = compressToken(compressedChars, tokenID, rankedTokenmaps[tokenID], idChar)
 
 
     # DONE find compression ratios for token size of three, four, fives etc, until the size of token gives zero net compression
