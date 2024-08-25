@@ -1,8 +1,5 @@
 import argparse
 
-# steamrolldata = {}
-# steamrolltokencounts = {}
-
 BASE92 = "~ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&'()*+,-./:;<=>?@[]^_`{|}"
 IDCHARS = ["~", "^", "`", "@", "{", "|", "}", "[", "]", "<", ">", "=", "*", "+", "-", "#", "%", "$", "&", "'", "(", ")", "_", "/", ":", ";", "!", "?", "," , ".", "~~", "~^", "~`", "~@", "~{", "~|", "~}", "~[", "~]", "~<", "~>", "~=", "~*", "~+", "~-", "~#", "~%", "~$", "~&", "~'", "~(", "~)", "~_", "~/", "~:", "~;", "~!", "~?", "~,", "~."]
 
@@ -204,7 +201,7 @@ def rankAllTokenmaps(allTokenmaps):
     return keyedRankedTokenmaps
 
 def compressToken(chars, tokenID, tokenmap, idChar):
-    # !* compression can be optimized by assigning the base92 ids here, at the time of compression
+    # !# compression can be optimized by assigning the base92 ids here, at the time of compression
     #       as opposed to before we know if the tokenmap is still valid for compression
     #       we really should overhaul id assigning because the process is repeated likely unnecessarily
     
@@ -246,15 +243,14 @@ def steamroll(chars):
     rankedTokenmaps = rankAllTokenmaps(rankedTokenmaps)
     print(rankedTokenmaps)
 
+    # iteratively compress the char buffer by each token if it is still valid
     compressedChars = chars
     for tokenID in rankedTokenmaps:
         compressedChars = compressToken(compressedChars, tokenID, rankedTokenmaps[tokenID], idChar)
+    
+    compressedChars = f"{idChar}{compressedChars}{idChar}"
 
-
-    # DONE find compression ratios for token size of three, four, fives etc, until the size of token gives zero net compression
-    # DONE rank all the tokenmaps by most bytes compressed by the fewest id digits
-    # !* compress by each tokenmap in order, if it's still valid (because a previous compression may have invalidated it)
-    # !* maybe at the end reevaluate the new ranking of best mappings and continue the process until no more compression is obtained
+    return compressedChars
 
 def unsteamrollold(steamrolldata, chars):
     # split header from data
@@ -296,17 +292,61 @@ def unsteamrollold(steamrolldata, chars):
 
     return "".join(uncompressedDataQueue)
 
+# def verifySafeChar(safechar, chars): # !# probably don't need this
+#     if len(safechar) == 1:
+#         foundFirstSafechar = False
+#         foundTokenID = False
+#         foundMiddleSafechar = False
+#         suspectedTokenmap = ""
+#         for c in chars[len(safechar):]:
+#             if foundFirstSafechar == False:
+#                 if c == safechar:
+#                     foundFirstSafechar = True
+#                     suspectedTokenmap += c
+#             elif foundFirstSafechar:
+#                 suspectedTokenmap += c
+#                 if foundTokenID == False and foundMiddleSafechar == False:
+#                     foundTokenID = True
+#                 elif c == safechar and foundTokenID == True and foundMiddleSafechar == False:
+#                     foundMiddleSafechar = True
+#                 elif c == safechar and foundTokenID == True and foundMiddleSafechar == True:
+#                     return [suspectedTokenmap[0], suspectedTokenmap[3:-1]]
+#     elif len(safechar) == 2:
+#         print("uncompressing with 2 digit safechar is not implemented yet")
+
+def unsteamroll(chars):
+    safecharGuess = ""
+    if chars[:2] == chars[-2:] and chars[:2] in IDCHARS[30:]:
+        safecharGuess = chars[:2]
+        print(f"safechar guess is {chars[:2]}")
+    elif chars[0] == chars[-1]:
+        safecharGuess = chars[0]
+        print(f"safechar guess is {chars[0]}")
+    else:
+        print("This is not a valid steamrolled file and cannot be uncompressed.")
+        return False
+
+    # !@ construct a tokenmap by finding all first instances of each compressed token using the correct guessed safechar
+    tokenmap = []
+    # !@ repurpose verifySafeChar() to find tokenmaps?
+
+    # !@ replace compressed tokens with the original token
+
+    return chars
+
 def main(source, isCompress, isUncompress, isClean):
     chars = fread(source)
 
     if isCompress:
         compressedText = steamroll(chars)
-        # fwrite(compressedText, r"C:\\Working\\steamroll\\testCompressed.txt")
+        fwrite(compressedText, r"C:\\Working\\steamroll\\testCompressed.txt")
     
     if isUncompress:
-        pass
-        # uncompressedText = unsteamroll(steamrolldata, chars)
-        # fwrite(uncompressedText, r"C:\\Working\\steamroll\\testUncompressed.txt")
+        uncompressedText = unsteamroll(chars)
+        # if uncompressedText:
+        #     fwrite(uncompressedText, r"C:\\Working\\steamroll\\testUncompressed.txt")
+        # else:
+        #     print("Failed to write uncompressed file.")
 
     if isClean:
         fwrite(chars, r"C:\\Working\\steamroll\\testCleaned.txt")
@@ -319,7 +359,3 @@ if __name__ == "__main__":
     parser.add_argument("-cl", "--clean", action="store_true", help="Clean the file of non-ascii characters.")
     args = parser.parse_args()
     main(args.source, args.compress, args.uncompress, args.clean)
-
-# !* sort mapped tokens to optimize storing the most repetitions with the smallest ids
-# !* pull words out of punctuation to compress them?
-# !* handle ; in mapped tokens
