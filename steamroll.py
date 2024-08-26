@@ -324,34 +324,48 @@ def findNextTokenmap(chars, safechar, tokenCounter):
     else:
         return [False]
 
+def uncompressTokenmap(chars, tokenmap, safechar):
+    reconstructedTokenmap = f"{safechar}{tokenmap[0]}{safechar}{tokenmap[1]}{safechar}"
+    uncompressedChars = chars.replace(reconstructedTokenmap, tokenmap[1])
+    return uncompressedChars
+
+def uncompressTokens(chars, tokenmap, safechar):
+    tokenID = f"{safechar}{tokenmap[0]}{safechar}"
+    uncompressedChars = chars.replace(tokenID, tokenmap[1])
+    return uncompressedChars
+
 def unsteamroll(chars):
     safecharGuess = ""
     if chars[:2] == chars[-2:] and chars[:2] in IDCHARS[30:]:
         safecharGuess = chars[:2]
-        print(f"safechar guess is {chars[:2]}")
     elif chars[0] == chars[-1]:
         safecharGuess = chars[0]
-        print(f"safechar guess is {chars[0]}")
     else:
         print("This is not a valid steamrolled file and cannot be uncompressed.")
         return False
 
-    # !@ construct a tokenmap by finding all first instances of each compressed token using the correct guessed safechar
-    tokenmap = []
+    tokenmaps = []
     tokenCounter = 0
     keepSearching = True
     while keepSearching:
         foundNextTokenmap = findNextTokenmap(chars[len(safecharGuess):-len(safecharGuess)], safecharGuess, tokenCounter)
         if foundNextTokenmap[0]:
-            tokenmap.append(foundNextTokenmap[1])
+            tokenmaps.append(foundNextTokenmap[1])
             tokenCounter += 1
-            print(tokenmap)
         else:
             keepSearching = False
 
-    # !@ replace compressed tokens with the original token
+    uncompressedChars = chars
 
-    return chars
+    # first uncompress/fix the initial occurances of the tokenmaps to avoid safechar collisions
+    for tokenmap in tokenmaps:
+        uncompressedChars = uncompressTokenmap(uncompressedChars, tokenmap, safecharGuess)
+    
+    # second actually uncompress all the tokenIDs
+    for tokenmap in tokenmaps:
+        uncompressedChars = uncompressTokens(uncompressedChars, tokenmap, safecharGuess)
+
+    return uncompressedChars[len(safecharGuess):-len(safecharGuess)]
 
 def main(source, isCompress, isUncompress, isClean):
     chars = fread(source)
@@ -362,10 +376,10 @@ def main(source, isCompress, isUncompress, isClean):
     
     if isUncompress:
         uncompressedText = unsteamroll(chars)
-        # if uncompressedText:
-        #     fwrite(uncompressedText, r"C:\\Working\\steamroll\\testUncompressed.txt")
-        # else:
-        #     print("Failed to write uncompressed file.")
+        if uncompressedText:
+            fwrite(uncompressedText, r"C:\\Working\\steamroll\\testUncompressed.txt")
+        else:
+            print("Failed to write uncompressed file.")
 
     if isClean:
         fwrite(chars, r"C:\\Working\\steamroll\\testCleaned.txt")
