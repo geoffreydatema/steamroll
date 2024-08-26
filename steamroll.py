@@ -201,10 +201,6 @@ def rankAllTokenmaps(allTokenmaps):
     return keyedRankedTokenmaps
 
 def compressToken(chars, tokenID, tokenmap, safechar):
-    # !# compression can be optimized by assigning the base92 ids here, at the time of compression
-    #       as opposed to before we know if the tokenmap is still valid for compression
-    #       we really should overhaul id assigning because the process is repeated likely unnecessarily
-    
     if tokenmap[1] < 1.0:
 
         occurances = chars.count(tokenmap[0])
@@ -319,28 +315,14 @@ def unsteamrollold(steamrolldata, chars):
 #     elif len(safechar) == 2:
 #         print("uncompressing with 2 digit safechar is not implemented yet")
 
-def findNextTokenmap(safechar, chars):
-    # !# this will only work if the tokenIDs are sequential starting from ~, so first I will go back and fix that
-    if len(safechar) == 1:
-        foundFirstSafechar = False
-        foundTokenID = False
-        foundMiddleSafechar = False
-        newTokenmap = ""
-        for c in chars:
-            if foundFirstSafechar == False:
-                if c == safechar:
-                    foundFirstSafechar = True
-                    newTokenmap += c
-            elif foundFirstSafechar:
-                newTokenmap += c
-                if foundTokenID == False and foundMiddleSafechar == False:
-                    foundTokenID = True
-                elif c == safechar and foundTokenID == True and foundMiddleSafechar == False:
-                    foundMiddleSafechar = True
-                elif c == safechar and foundTokenID == True and foundMiddleSafechar == True:
-                    return [newTokenmap[0], newTokenmap[3:-1]]
-    elif len(safechar) == 2:
-        print("uncompressing with 2 digit safechar is not implemented yet")
+def findNextTokenmap(chars, safechar, tokenCounter):
+    tokenID = base92(tokenCounter)
+    split = chars.split(f"{safechar}{tokenID}{safechar}")
+    if len(split) > 1:
+        originalToken = split[1].split(safechar)
+        return [True, [tokenID, originalToken[0]]]
+    else:
+        return [False]
 
 def unsteamroll(chars):
     safecharGuess = ""
@@ -356,7 +338,16 @@ def unsteamroll(chars):
 
     # !@ construct a tokenmap by finding all first instances of each compressed token using the correct guessed safechar
     tokenmap = []
-    
+    tokenCounter = 0
+    keepSearching = True
+    while keepSearching:
+        foundNextTokenmap = findNextTokenmap(chars[len(safecharGuess):-len(safecharGuess)], safecharGuess, tokenCounter)
+        if foundNextTokenmap[0]:
+            tokenmap.append(foundNextTokenmap[1])
+            tokenCounter += 1
+            print(tokenmap)
+        else:
+            keepSearching = False
 
     # !@ replace compressed tokens with the original token
 
