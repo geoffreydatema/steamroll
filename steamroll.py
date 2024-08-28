@@ -1,9 +1,7 @@
 import argparse
 
 BASE92 = "~ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!#$%&'()*+,-./:;<=>?@[]^_`{|}"
-IDCHARS = ["~", "^", "`", "@", "{", "|", "}", "[", "]", "<", ">", "=", "*", "+", "-", "#", "%", "$", "&", "'", "(", ")", "_", "/", ":", ";", "!", "?", "," , ".", "~~", "~^", "~`", "~@", "~{", "~|", "~}", "~[", "~]", "~<", "~>", "~=", "~*", "~+", "~-", "~#", "~%", "~$", "~&", "~'", "~(", "~)", "~_", "~/", "~:", "~;", "~!", "~?", "~,", "~."]
-
-# POWERSOF90 = [90, 8100, 729000, 65610000, 5904900000]
+SAFECHARS = ["~", "^", "`", "@", "{", "|", "}", "[", "]", "<", ">", "=", "*", "+", "-", "#", "%", "$", "&", "'", "(", ")", "_", "/", ":", ";", "!", "?", "," , ".", "~~", "~^", "~`", "~@", "~{", "~|", "~}", "~[", "~]", "~<", "~>", "~=", "~*", "~+", "~-", "~#", "~%", "~$", "~&", "~'", "~(", "~)", "~_", "~/", "~:", "~;", "~!", "~?", "~,", "~."]
 
 def base92(decimal):
     base92String = ""
@@ -18,15 +16,6 @@ def base92(decimal):
         print("cannot convert negative decimal to base92")
         return None
 
-# def fromBase90(base90):
-#     base90Decimals = {'~': 0, 'A': 1, 'B': 2, 'C': 3, 'D': 4, 'E': 5, 'F': 6, 'G': 7, 'H': 8, 'I': 9, 'J': 10, 'K': 11, 'L': 12, 'M': 13, 'N': 14, 'O': 15, 'P': 16, 'Q': 17, 'R': 18, 'S': 19, 'T': 20, 'U': 21, 'V': 22, 'W': 23, 'X': 24, 'Y': 25, 'Z': 26, 'a': 27, 'b': 28, 'c': 29, 'd': 30, 'e': 31, 'f': 32, 'g': 33, 'h': 34, 'i': 35, 'j': 36, 'k': 37, 'l': 38, 'm': 39, 'n': 40, 'o': 41, 'p': 42, 'q': 43, 'r': 44, 's': 45, 't': 46, 'u': 47, 'v': 48, 'w': 49, 'x': 50, 'y': 51, 'z': 52, '0': 53, '1': 54, '2': 55, '3': 56, '4': 57, '5': 58, '6': 59, '7': 60, '8': 61, '9': 62, '!': 63, '#': 64, '$': 65, '%': 66, '&': 67, "'": 68, '(': 69, ')': 70, '*': 71, '+': 72, ',': 73, '-': 74, '.': 75, '/': 76, ':': 77, '<': 78, '=': 79, '>': 80, '?': 81, '@': 82, '[': 83, ']': 84, '_': 85, '': 86, '{': 87, '|': 88, '}': 89}
-#     decimal = 0
-#     power = 0
-#     for char in reversed(base90):
-#         decimal += base90Decimals[char] * (90 ** power)
-#         power += 1
-#     return decimal
-
 def fread(path):
     data = None
     with open(path, "rb") as file:
@@ -38,86 +27,19 @@ def fwrite(data, path):
     with open(path, "w") as file:
         file.write(data)
 
-def steamrollold(steamrolldata, steamrolltokencounts, chars):
-    tokens = chars.split(" ")
-    index = 0
-    totalTokens = 0
-
-    # map all words to a base90 id
-    for token in tokens:
-        if len(token) > 4:
-            if token not in steamrolldata.values():
-                base92Index = base90(index)
-                steamrolldata[base92Index] = token
-                steamrolltokencounts[base92Index] = 1
-                index += 1
-            else:
-                for key in steamrolldata.keys():
-                    if steamrolldata[key] == token:
-                        steamrolltokencounts[key] += 1
-        totalTokens += 1
-
-    # flag all tokens that map to a word that isn't repeated, so that we can remove them
-    tokensToRemove = []
-    for key in steamrolldata.keys():
-        numberOfBytesOriginal = len(steamrolldata[key]) * steamrolltokencounts[key]
-        numberOfBytesCompressed = (len(steamrolldata[key]) + len(key) + 1) + ((len(key) + 1) * steamrolltokencounts[key])
-        ratio = numberOfBytesCompressed / numberOfBytesOriginal
-        
-        if ratio >= 1:
-            tokensToRemove.append(key)
-
-    # remove mapped tokens that won't result in net compression
-    for key in tokensToRemove:
-        del steamrolldata[key]
-        del steamrolltokencounts[key]
-
-    # renumber all mapped tokens starting from 0 so that we use as few base90 digits to map to them
-    renumberedSteamrollData = {}
-    renumberedSteamrollTokenCounts = {}
-    
-    index = 0
-    for key in steamrolldata:
-        renumberedSteamrollData[base90(index)] = steamrolldata[key]
-        renumberedSteamrollTokenCounts[base90(index)] = steamrolltokencounts[key]
-        index += 1
-
-    steamrolldata = renumberedSteamrollData
-    steamrolltokencounts = renumberedSteamrollTokenCounts
-
-    # write the token map to the start of the file
-    tokenQueue = [""]
-    for key in steamrolldata.keys():
-        tokenQueue[0] += f"^{key}{steamrolldata[key]}"
-    tokenQueue[0] += ";"
-
-    # create a queue of tokens, subbing in the mapped id for compressed tokens
-    for token in tokens:
-        addedToken = False
-        for key in steamrolldata.keys():
-            if steamrolldata[key] == token:
-                tokenQueue.append(f"^{key} ")
-                addedToken = True
-                break
-        if addedToken == False:
-            tokenQueue.append(f"{token} ")
-    tokenQueue[-1] = tokenQueue[-1][:-1]
-
-    return "".join(tokenQueue)
-
 def getSafeChar(chars):
     keepSearching = False
     searchDoubles = False
-    for idCharIndex in range(len(IDCHARS)):
+    for idCharIndex in range(len(SAFECHARS)):
         keepSearching = False
         for index in range(len(chars)):
             if searchDoubles == False:
-                if chars[index] == IDCHARS[idCharIndex]:
+                if chars[index] == SAFECHARS[idCharIndex]:
                     keepSearching = True
                     break
             else:
                 if index < len(chars) - 1:
-                    if f"{chars[index]}{chars[index + 1]}" == IDCHARS[idCharIndex]:
+                    if f"{chars[index]}{chars[index + 1]}" == SAFECHARS[idCharIndex]:
                         keepSearching = True
                         break
             index += 1
@@ -126,7 +48,7 @@ def getSafeChar(chars):
             searchDoubles = True
 
         if keepSearching == False:
-            return IDCHARS[idCharIndex]
+            return SAFECHARS[idCharIndex]
     print("Could not find a safe character for mapping tokens. Unfortunatly this file cannot be compressed.")
     return None
 
@@ -205,17 +127,11 @@ def compressToken(chars, tokenID, tokenmap, safechar):
 
         occurances = chars.count(tokenmap[0])
         if occurances > 1:
-            print(f"compressing [{tokenmap[0]}]")
-            print(f"original file ---- {chars}")
-            
             fullTokenmap = f"{safechar}{tokenID}{safechar}{tokenmap[0]}{safechar}"
             firstInstance = chars.replace(tokenmap[0], fullTokenmap, 1)
             splitChars = firstInstance.split(fullTokenmap)  
             compressedSplit = splitChars[1].replace(tokenmap[0], f"{safechar}{tokenID}{safechar}")
-
             combinedCompressedChars = splitChars[0] + fullTokenmap + compressedSplit
-            print(f"compressed file --- {combinedCompressedChars}\n\n")
-
             return [combinedCompressedChars, True]
         else:
             return [chars, False]
@@ -237,7 +153,6 @@ def steamroll(chars):
 
     # compare compression ratio across all token sizes and return the order we will compress in
     rankedTokenmaps = rankAllTokenmaps(rankedTokenmaps)
-    print(rankedTokenmaps)
 
     # iteratively compress the char buffer by each token if it is still valid
     tokenCounter = 0
@@ -252,68 +167,6 @@ def steamroll(chars):
     compressedChars = f"{safechar}{compressedChars}{safechar}"
 
     return compressedChars
-
-def unsteamrollold(steamrolldata, chars):
-    # split header from data
-    headerSplit = chars.split(";")
-    
-    # read in tokenmap
-    header = headerSplit[0].split("^")[1:]
-    data = headerSplit[1]
-    mappedTokenCounter = 0
-    while len(header) > 0:
-        if mappedTokenCounter < POWERSOF90[0]:
-            digitCount = 1
-        elif mappedTokenCounter < POWERSOF90[1]:
-            digitCount = 2
-        elif mappedTokenCounter < POWERSOF90[2]:
-            digitCount = 3
-        elif mappedTokenCounter < POWERSOF90[3]:
-            digitCount = 4
-        elif mappedTokenCounter < POWERSOF90[4]:
-            digitCount = 5
-        else:
-            print("cannot handle over 5904900000 mapped tokens")
-        
-        base90Index = header[0][:digitCount]
-        steamrolldata[base90Index] = header[0][digitCount:]
-        header = header[1:]
-        mappedTokenCounter += 1
-
-    # read in mixed tokens, uncompressing mapped tokens using the tokenmap
-    data = data.split(" ")
-    uncompressedDataQueue = []
-
-    for token in data:
-        if token[0] == "^":
-            uncompressedDataQueue.append(f"{steamrolldata[token[1:]]} ")
-        else:
-            uncompressedDataQueue.append(f"{token} ")
-    uncompressedDataQueue[-1] = uncompressedDataQueue[-1][:-1]
-
-    return "".join(uncompressedDataQueue)
-
-# def verifySafeChar(safechar, chars): # !# probably don't need this
-#     if len(safechar) == 1:
-#         foundFirstSafechar = False
-#         foundTokenID = False
-#         foundMiddleSafechar = False
-#         suspectedTokenmap = ""
-#         for c in chars[len(safechar):]:
-#             if foundFirstSafechar == False:
-#                 if c == safechar:
-#                     foundFirstSafechar = True
-#                     suspectedTokenmap += c
-#             elif foundFirstSafechar:
-#                 suspectedTokenmap += c
-#                 if foundTokenID == False and foundMiddleSafechar == False:
-#                     foundTokenID = True
-#                 elif c == safechar and foundTokenID == True and foundMiddleSafechar == False:
-#                     foundMiddleSafechar = True
-#                 elif c == safechar and foundTokenID == True and foundMiddleSafechar == True:
-#                     return [suspectedTokenmap[0], suspectedTokenmap[3:-1]]
-#     elif len(safechar) == 2:
-#         print("uncompressing with 2 digit safechar is not implemented yet")
 
 def findNextTokenmap(chars, safechar, tokenCounter):
     tokenID = base92(tokenCounter)
@@ -336,7 +189,7 @@ def uncompressTokens(chars, tokenmap, safechar):
 
 def unsteamroll(chars):
     safecharGuess = ""
-    if chars[:2] == chars[-2:] and chars[:2] in IDCHARS[30:]:
+    if chars[:2] == chars[-2:] and chars[:2] in SAFECHARS[30:]:
         safecharGuess = chars[:2]
     elif chars[0] == chars[-1]:
         safecharGuess = chars[0]
