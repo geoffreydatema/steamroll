@@ -180,12 +180,57 @@ def findNextTokenmap(chars, safechar, tokenCounter):
 def uncompressTokenmap(chars, tokenmap, safechar):
     reconstructedTokenmap = f"{safechar}{tokenmap[0]}{safechar}{tokenmap[1]}{safechar}"
     uncompressedChars = chars.replace(reconstructedTokenmap, tokenmap[1])
+    # print(f"\nUNCOMPRESSED TOKENMAP------------")
+    # print(f"reconstructedTokenap: {reconstructedTokenmap}")
+    # print(f"uncompressedChars: {uncompressedChars}\n")
     return uncompressedChars
 
 def uncompressTokens(chars, tokenmap, safechar):
     tokenID = f"{safechar}{tokenmap[0]}{safechar}"
     uncompressedChars = chars.replace(tokenID, tokenmap[1])
+    # print(f"\nUNCOMPRESSED TOKENNNNNNNNN------------")
+    # print(f"tokenID: {tokenID}")
+    # print(f"uncompressedChars: {uncompressedChars}")
     return uncompressedChars
+
+def resolveDoubleEndedSafecharCollisions(chars, tokenmaps, safechar):
+    # check for the rare situation of a tokenID both before and after {safechar}{safechar}{safechar}
+    safecharCollisionStartIndex = chars.find(f"{safechar}{safechar}{safechar}{safechar}{safechar}")
+    fixedChars = ""
+    if safecharCollisionStartIndex > -1:
+        precedingTokenIdStartIndex = safecharCollisionStartIndex - 2
+        succeedingTokenIdStartIndex = safecharCollisionStartIndex + 7
+
+        charsToFix = chars[precedingTokenIdStartIndex:succeedingTokenIdStartIndex]
+        for tokenmap in tokenmaps:
+            tokenID = f"{safechar}{tokenmap[0]}{safechar}"
+            if tokenmap[0] == safechar:
+                continue
+            elif tokenID in charsToFix:
+                charsToFix = charsToFix.replace(tokenID, tokenmap[1])
+        fixedChars = f"{chars[:precedingTokenIdStartIndex]}{charsToFix}{chars[succeedingTokenIdStartIndex:]}"
+        return fixedChars
+    else:
+        return chars
+
+def resolveSingleSafecharCollisions(chars, tokenmaps, safechar):
+    # check for a tokenID either before or after {safechar}{safechar}{safechar}
+    safecharCollisionStartIndex = chars.find(f"{safechar}{safechar}{safechar}{safechar}")
+    fixedChars = ""
+    if safecharCollisionStartIndex > -1:
+        precedingTokenIdStartIndex = safecharCollisionStartIndex - 2
+        succeedingTokenIdStartIndex = safecharCollisionStartIndex + 6
+        charsToFix = chars[precedingTokenIdStartIndex:succeedingTokenIdStartIndex]
+        for tokenmap in tokenmaps:
+            tokenID = f"{safechar}{tokenmap[0]}{safechar}"
+            if tokenmap[0] == safechar:
+                continue
+            elif tokenID in charsToFix:
+                charsToFix = charsToFix.replace(tokenID, tokenmap[1])
+        fixedChars = f"{chars[:precedingTokenIdStartIndex]}{charsToFix}{chars[succeedingTokenIdStartIndex:]}"
+        return fixedChars
+    else:
+        return chars
 
 def unsteamroll(chars):
     safecharGuess = ""
@@ -210,11 +255,18 @@ def unsteamroll(chars):
 
     uncompressedChars = chars
 
-    # first uncompress/fix the initial occurances of the tokenmaps to avoid safechar collisions
+    # uncompress/fix the initial occurances of the tokenmaps
     for tokenmap in tokenmaps:
         uncompressedChars = uncompressTokenmap(uncompressedChars, tokenmap, safecharGuess)
     
-    # second actually uncompress all the tokenIDs
+    # check for safechar collisions with valid tokenIDs and fix them
+    uncompressedChars = resolveDoubleEndedSafecharCollisions(uncompressedChars, tokenmaps, safecharGuess)
+    print(uncompressedChars)
+    uncompressedChars = resolveSingleSafecharCollisions(uncompressedChars, tokenmaps, safecharGuess)
+    print()
+    print(uncompressedChars)
+
+    # now actually uncompress all the tokenIDs
     for tokenmap in tokenmaps:
         uncompressedChars = uncompressTokens(uncompressedChars, tokenmap, safecharGuess)
 
