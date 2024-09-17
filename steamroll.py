@@ -122,9 +122,14 @@ def rankAllTokenmaps(allTokenmaps):
 
     return keyedRankedTokenmaps
 
-def compressToken(chars, tokenID, tokenmap, safechar):
-    if tokenmap[1] < 1.0:
+def compressToken(chars, tokenID, tokenmap, safechar, successfullyCompressedTokens):
+    # if the current token candidate is a substring of a previously compressed token, don't compress it
+    # most likely means that we would be compressing a properly formatted tokenmap, which would break everything :(
+    for successfulToken in successfullyCompressedTokens:
+        if tokenmap[0] in successfulToken:
+            return [chars, False]
 
+    if tokenmap[1] < 1.0:
         occurances = chars.count(tokenmap[0])
         if occurances > 1:
             fullTokenmap = f"{safechar}{tokenID}{safechar}{tokenmap[0]}{safechar}"
@@ -132,7 +137,10 @@ def compressToken(chars, tokenID, tokenmap, safechar):
             splitChars = firstInstance.split(fullTokenmap)  
             compressedSplit = splitChars[1].replace(tokenmap[0], f"{safechar}{tokenID}{safechar}")
             combinedCompressedChars = splitChars[0] + fullTokenmap + compressedSplit
-            return [combinedCompressedChars, True]
+            # print(f"compressing: {tokenID} {tokenmap}")
+            # print(combinedCompressedChars)
+            # print()
+            return [combinedCompressedChars, True, tokenmap]
         else:
             return [chars, False]
 
@@ -157,10 +165,13 @@ def steamroll(chars):
     # iteratively compress the char buffer by each token if it is still valid
     tokenCounter = 0
     compressedChars = chars
+    successfullyCompressedTokens = []
     for originalTokenID in rankedTokenmaps:
-        compressionResult = compressToken(compressedChars, base92(tokenCounter), rankedTokenmaps[originalTokenID], safechar)
+        compressionResult = compressToken(compressedChars, base92(tokenCounter), rankedTokenmaps[originalTokenID], safechar, successfullyCompressedTokens)
         compressedChars = compressionResult[0]
         incrementStatus = compressionResult[1]
+        if incrementStatus:
+            successfullyCompressedTokens.append(compressionResult[2][0])
         if incrementStatus:
             tokenCounter += 1
     
@@ -181,15 +192,18 @@ def uncompressTokenmap(chars, tokenmap, safechar):
     reconstructedTokenmap = f"{safechar}{tokenmap[0]}{safechar}{tokenmap[1]}{safechar}"
     uncompressedChars = chars.replace(reconstructedTokenmap, tokenmap[1])
     # print(f"\nUNCOMPRESSED TOKENMAP------------")
-    # print(f"reconstructedTokenap: {reconstructedTokenmap}")
+    # print(f"tokenmap[0] {tokenmap[0]}")
+    # print(f"tokenmap[1] {tokenmap[1]}")
+    # print(f"reconstructedTokenmap: {reconstructedTokenmap}")
     # print(f"uncompressedChars: {uncompressedChars}\n")
     return uncompressedChars
 
 def uncompressTokens(chars, tokenmap, safechar):
     tokenID = f"{safechar}{tokenmap[0]}{safechar}"
     uncompressedChars = chars.replace(tokenID, tokenmap[1])
-    # print(f"\nUNCOMPRESSED TOKENNNNNNNNN------------")
+    # print(f"\nUNCOMPRESSED TOKEN------------")
     # print(f"tokenID: {tokenID}")
+    # print(f"token: {tokenmap[1]}")
     # print(f"uncompressedChars: {uncompressedChars}")
     return uncompressedChars
 
@@ -261,10 +275,7 @@ def unsteamroll(chars):
     
     # check for safechar collisions with valid tokenIDs and fix them
     uncompressedChars = resolveDoubleEndedSafecharCollisions(uncompressedChars, tokenmaps, safecharGuess)
-    print(uncompressedChars)
     uncompressedChars = resolveSingleSafecharCollisions(uncompressedChars, tokenmaps, safecharGuess)
-    print()
-    print(uncompressedChars)
 
     # now actually uncompress all the tokenIDs
     for tokenmap in tokenmaps:
